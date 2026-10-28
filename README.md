@@ -59,19 +59,37 @@ Today's Schedule
 
 ## 🧪 Testing PawPal+
 
-```bash
-# Run the full test suite:
-pytest
+Run the full suite from the project root:
 
-# Run with coverage:
-pytest --cov
+```bash
+python -m pytest
 ```
+
+`tests/test_pawpal.py` has 24 tests covering:
+
+- **Basics** — `mark_complete()` flips the status, adding a task increases a pet's task count, the Owner collects tasks from every pet, and duplicate pet names are rejected.
+- **Sorting correctness** — tasks come back in chronological order even when added out of order; unpadded times like `"9:00"` sort before `"10:00"`; the date is compared before the time; "today's schedule" excludes other days.
+- **Filtering** — by pet (case-insensitive), by completion status, and by both together.
+- **Recurrence logic** — a completed daily task creates a new task for the next day (including across a month boundary); weekly tasks move forward 7 days; one-off tasks don't recur; completing a task twice doesn't create a duplicate.
+- **Conflict detection** — two tasks at the same time are flagged for different pets and for the same pet; different times or dates are not flagged; completed tasks are ignored.
+- **Edge cases and validation** — a pet with no tasks produces an empty schedule and no conflicts; invalid times (`25:00`, `12:60`, `noon`, blank) and invalid frequencies raise `ValueError`.
+
+Tests use fixed dates, so they pass the same way on any day. To make sure the tests really catch bugs, I broke the code on purpose three ways: removed the time normalization, set the daily step to 0 days, and counted completed tasks as conflicts. Each time, at least one test failed.
 
 Sample test output:
 
 ```
-# Paste your pytest output here
+============================= test session starts ==============================
+platform linux -- Python 3.13.18, pytest-9.1.1, pluggy-1.6.0
+rootdir: .../pawpal
+collected 24 items
+
+tests/test_pawpal.py ........................                            [100%]
+
+============================== 24 passed in 0.10s ==============================
 ```
+
+**Confidence level: ★★★★☆ (4/5)** — every required behavior and the main edge cases are tested and passing. I'm holding back one star because conflict detection only compares exact start times (overlapping durations aren't caught), and the Streamlit UI is verified by hand rather than by automated tests.
 
 ## 📐 Smarter Scheduling
 
