@@ -56,24 +56,24 @@ I think this is reasonable for a first version. Exact-match checking is simple a
 
 **a. How you used AI**
 
-I used Claude as an AI coding agent through the whole build, working one phase at a time:
+I used Claude (in agent mode on claude.ai) as the main builder for this project, and I acted as the person directing and checking the work. I gave it the assignment instructions and the link to the CodePath starter repo, and told it to do only the required parts and skip the optional extensions. Before it started, it asked what it needed: the starter code, and where the finished work should go.
 
-- **Design** — turning my four classes into a Mermaid UML draft and a dataclass skeleton, then reviewing the skeleton for missing relationships. That review found the missing `due_date` and pet link.
-- **Implementation** — writing the core classes, then the algorithm layer (sorting with a `lambda` key, filtering, `timedelta`-based recurrence, and the conflict check).
-- **Verification** — writing the CLI demo and the pytest suite, running them after every phase, and checking the Streamlit wiring.
-- **Documentation** — docstrings, README sections, and the final UML update.
+It then worked through the phases in order (UML draft and class skeleton → core classes and `main.py` → Streamlit wiring → sorting, filtering, recurrence, and conflicts → tests → UI polish and docs), with a separate git commit after each phase. My part was getting the work into my own fork and running it myself on my computer.
 
-The most helpful requests were **specific and tied to a file or behavior**, like "review `pawpal_system.py` for missing relationships," "what are the edge cases for recurring tasks?", or "make conflict detection return warnings instead of crashing." Broad requests like "make it smarter" were less useful than naming the exact behavior I wanted.
+The most useful prompts were the ones that set clear limits: what to build, what to leave out, and that it should tell me what it needed before starting instead of guessing.
 
 **b. Judgment and verification**
 
-The project hint was to sort tasks with `sorted(tasks, key=lambda t: t.time)` on `"HH:MM"` strings. That's correct only when every time is zero-padded. If someone types `"7:30"`, string comparison puts it **after** `"18:00"`, because the character `"7"` comes after `"1"`. Instead of accepting the one-line sort as-is, I added `normalize_time()`, which validates every time when a `Task` is created and rewrites it as `"07:30"`. The sort stays a simple, readable `lambda`, and it is now always correct. Sorting by `(due_date, time)` also keeps tomorrow's tasks after today's.
+I didn't take "it works" on faith, because the AI couldn't check everything itself. Its environment couldn't install Streamlit, so it tested `app.py` with a fake stand-in. The only real proof that the UI works was me running it. When I did, I hit problems the AI couldn't have seen:
 
-For conflict detection, I chose a version that groups tasks into a dictionary keyed by `(date, time)` instead of a nested loop comparing every pair. It's a single pass, and each warning lists every task in the slot at once instead of producing one warning per pair.
+- `git` wasn't installed on my Windows machine, so my first push failed and I had to install Git first.
+- After installing the requirements, `streamlit run app.py` wasn't recognized because the Microsoft Store version of Python doesn't put Streamlit's folder on the PATH. Running `python -m streamlit run app.py` fixed it, and the app loaded and worked.
 
-**How I verified:** `main.py` deliberately adds `"7:30"` out of order and books two tasks at 12:00, and I checked the printed output. Every rule has a pytest test (including `test_sort_handles_unpadded_hours`). I also broke the code on purpose three times (removing the normalization, setting the daily step to 0 days, and counting completed tasks as conflicts) to confirm the tests fail when the logic is wrong.
+I also checked the backend separately from the UI by running `python main.py` and `python -m pytest`.
 
-**Organization:** instead of one long unstructured conversation, I worked through the phases in order (UML/skeleton → core logic → UI wiring → algorithms → tests → polish) and committed after each one. That kept each step's goal clear and made it easy to see which change introduced what.
+One design decision that came up during the build: the assignment suggests sorting `"HH:MM"` strings with a simple `lambda` key. The agent pointed out that this breaks when a time isn't zero-padded (`"7:30"` sorts after `"18:00"` as text), so instead of using the hint as-is, every time is normalized to `"07:30"` when a task is created. There's a test for that case (`test_sort_handles_unpadded_hours`), and the demo deliberately uses `"7:30"` to show it. The agent also broke the code on purpose three times to prove the tests can actually fail, so a passing run means something.
+
+**Staying organized:** everything happened in one conversation, but each phase ended with its own commit (`chore:` skeleton → `feat:` core → `feat:` UI → `feat:` algorithms → `test:` suite → `docs:` final), so the commit history shows exactly what changed at each step.
 
 ---
 
@@ -120,4 +120,4 @@ The clean split between the logic layer and the UI. Everything smart lives in `p
 
 **c. Key takeaway**
 
-AI makes writing code fast, but I'm still responsible for the **design and the proof**. The AI could produce a working-looking sort or skeleton in seconds, but deciding that a task needs a date, noticing that string sorting breaks on `"7:30"`, and making sure the tests can actually fail were judgment calls I had to check against the UML and requirements. Being the "lead architect" meant deciding what the system should be, asking for focused pieces, and accepting nothing without running it.
+An AI agent can build a whole working project very quickly, but "the AI says it works" isn't the same as it working on my machine. The code itself was fine, but the problems I actually hit were setup problems (Git missing, Streamlit not on the PATH) that only showed up when I ran things myself. Being the "lead architect" with a tool this capable means setting the scope clearly, checking the result against the requirements, and verifying it on my own computer. I also need to understand the design well enough to explain it, since I'm the one turning it in.
