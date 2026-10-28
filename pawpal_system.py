@@ -54,6 +54,12 @@ class Pet:
     age: int = 0
     tasks: list[Task] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        """Reject blank pet names."""
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValueError("Pet name cannot be blank")
+
     def add_task(self, task: Task) -> None:
         """Attach a task to this pet and tag it with the pet's name."""
         task.pet_name = self.name
