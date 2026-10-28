@@ -2,10 +2,22 @@
 
 ## 1. System Design
 
+**Core user actions**
+
+1. **Add a pet** — enter a pet's name, species, and age so PawPal+ can track care for it.
+2. **Schedule a care task** — add a task (walk, feeding, medication, vet appointment) for a specific pet with a time, duration, priority, and how often it repeats.
+3. **See today's schedule** — view every pet's tasks for today in time order, with warnings when two tasks collide, and check tasks off as they get done.
+
 **a. Initial design**
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+My initial UML (`diagrams/uml_draft.mmd`) had four classes:
+
+- **Task** (dataclass) — one care activity. Holds the description, time (`"HH:MM"`), duration, priority, frequency (`once` / `daily` / `weekly`), and whether it is completed. Its only behavior is `mark_complete()`.
+- **Pet** (dataclass) — the pet's name, species, and age, plus the list of tasks that belong to it. Responsible for `add_task()`.
+- **Owner** — the person using the app. Holds a list of pets and can collect every task across all of them with `get_all_tasks()`.
+- **Scheduler** — the "brain." It is given an Owner and asks it for tasks, then organizes them (`sort_by_time()`, `get_todays_schedule()`).
+
+Relationships: an Owner *has* many Pets, each Pet *owns* many Tasks (composition — a task doesn't exist without its pet), and the Scheduler *reads from* the Owner rather than storing its own copy of the tasks.
 
 **b. Design changes**
 
