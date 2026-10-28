@@ -35,8 +35,9 @@ Relationships: an Owner *has* many Pets, each Pet *owns* many Tasks (composition
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+My conflict detection only flags tasks that start at the **exact same date and time**. It does not check whether durations overlap. For example, a 30-minute walk at 07:30 and breakfast at 07:45 really do overlap, but no warning appears.
+
+I think this is reasonable for a first version. Exact-match checking is simple and fast: one pass that groups tasks by `(date, time)` with a dictionary, instead of comparing every pair of tasks. It catches the most obvious mistake, which is booking two things in the same slot. It also avoids false alarms. Many pet tasks can happen alongside each other, like giving the cat breakfast while the dog finishes eating, so warning about every partial overlap would get noisy. The method returns warning strings and doesn't raise errors, so a conflict never crashes the app. The owner just sees the warning and decides what to do.
 
 ---
 

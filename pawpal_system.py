@@ -1,10 +1,12 @@
 """PawPal+ logic layer: Owner, Pet, Task, and Scheduler classes."""
 
-from dataclasses import dataclass, field
-from datetime import date, datetime
+from dataclasses import dataclass, field, replace
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 
 VALID_PRIORITIES = ("low", "medium", "high")
 VALID_FREQUENCIES = ("once", "daily", "weekly")
+RECURRENCE_STEP = {"daily": timedelta(days=1), "weekly": timedelta(weeks=1)}
 
 
 def normalize_time(value: str) -> str:
@@ -43,6 +45,13 @@ class Task:
     def mark_complete(self) -> None:
         """Mark this task as done."""
         self.completed = True
+
+    def next_occurrence(self) -> "Task | None":
+        """Return a fresh, incomplete copy due one step later (daily: +1 day, weekly: +7 days), or None for one-off tasks."""
+        step = RECURRENCE_STEP.get(self.frequency)
+        if step is None:
+            return None
+        return replace(self, due_date=self.due_date + step, completed=False)
 
 
 @dataclass
@@ -108,14 +117,64 @@ class Scheduler:
         return self.owner.get_all_tasks()
 
     def sort_by_time(self, tasks: list[Task] | None = None) -> list[Task]:
-        """Return tasks ordered by time of day."""
+        """Return tasks in chronological order (by due date, then "HH:MM" time).
+
+        Times are normalized to zero-padded "HH:MM" when a Task is created, so plain
+        string comparison sorts them correctly ("09:00" < "13:30").
+        """
         tasks = self.get_all_tasks() if tasks is None else tasks
-        return sorted(tasks, key=lambda t: t.time)
+        return sorted(tasks, key=lambda t: (t.due_date, t.time))
+
+    def filter_tasks(
+        self,
+        tasks: list[Task] | None = None,
+        pet_name: str | None = None,
+        completed: bool | None = None,
+    ) -> list[Task]:
+        """Return tasks matching a pet name and/or completion status; None means "don't filter on this"."""
+        tasks = self.get_all_tasks() if tasks is None else tasks
+        return [
+            t for t in tasks
+            if (pet_name is None or t.pet_name.lower() == pet_name.lower())
+            and (completed is None or t.completed == completed)
+        ]
 
     def get_todays_schedule(self, on_date: date | None = None) -> list[Task]:
         """Return the tasks due on a date (default today), in time order."""
         on_date = on_date or date.today()
         return self.sort_by_time([t for t in self.get_all_tasks() if t.due_date == on_date])
+
+    def mark_task_complete(self, task: Task) -> Task | None:
+        """Complete a task; for daily/weekly tasks, add and return the next occurrence on the same pet."""
+        if task.completed:
+            return None  # already done: don't spawn a duplicate follow-up
+        task.mark_complete()
+        follow_up = task.next_occurrence()
+        if follow_up is not None:
+            pet = self.owner.get_pet(task.pet_name)
+            if pet is None:
+                raise ValueError(f"Task {task.description!r} isn't attached to one of {self.owner.name}'s pets")
+            pet.add_task(follow_up)
+        return follow_up
+
+    def detect_conflicts(self, tasks: list[Task] | None = None) -> list[str]:
+        """Return a warning for each date + start time shared by two or more pending tasks.
+
+        Lightweight by design: it only flags exact start-time matches (not overlapping
+        durations) and never raises, so the caller can just display the warnings.
+        """
+        tasks = self.get_all_tasks() if tasks is None else tasks
+        slots: dict[tuple[date, str], list[Task]] = defaultdict(list)
+        for t in tasks:
+            if not t.completed:
+                slots[(t.due_date, t.time)].append(t)
+
+        warnings = []
+        for (day, time), clashing in sorted(slots.items()):
+            if len(clashing) > 1:
+                who = ", ".join(f"{t.pet_name}: {t.description}" for t in clashing)
+                warnings.append(f"Conflict on {day.isoformat()} at {time} -> {who}")
+        return warnings
 
     @staticmethod
     def format_schedule(tasks: list[Task], title: str = "Today's Schedule") -> str:
@@ -126,7 +185,7 @@ class Scheduler:
         for t in tasks:
             status = "x" if t.completed else " "
             lines.append(
-                f"  [{status}] {t.time}  {t.pet_name:<8} {t.description:<22} "
+                f"  [{status}] {t.due_date:%a %m/%d} {t.time}  {t.pet_name:<8} {t.description:<22} "
                 f"{t.duration_minutes:>3} min  {t.priority:<6}  {t.frequency}"
             )
         return "\n".join(lines)

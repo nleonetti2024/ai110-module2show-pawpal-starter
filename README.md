@@ -75,14 +75,14 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
+All scheduling logic lives in `pawpal_system.py`.
 
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting | `Scheduler.sort_by_time()`, `Scheduler.get_todays_schedule()` | Chronological order by due date, then `"HH:MM"` time, using `sorted()` with a `lambda` key. Times are normalized to zero-padded `HH:MM` when a `Task` is created (`normalize_time()`), so `"7:30"` correctly sorts before `"18:00"`. |
+| Filtering | `Scheduler.filter_tasks(pet_name=..., completed=...)` | Filter by pet name (case-insensitive), by completion status, or both. Leaving a filter as `None` skips it. |
+| Conflict handling | `Scheduler.detect_conflicts()` | Groups pending tasks by `(date, start time)` and returns a readable warning string for every slot with 2+ tasks — across the same pet or different pets. It never raises, so the UI just displays the warnings. |
+| Recurring tasks | `Scheduler.mark_task_complete()`, `Task.next_occurrence()` | Completing a `daily` task creates a new copy due the next day (`timedelta(days=1)`); `weekly` creates one 7 days later. One-off (`once`) tasks just complete. Completing an already-done task does not create a duplicate. |
 
 ## 📸 Demo Walkthrough
 
